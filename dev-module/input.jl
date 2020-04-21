@@ -32,3 +32,6 @@ global const Bz_0 = [0, 0];
 global const limiter = 1;
 global const k = 1/3;
 global const eps = 0.15;
+
+# Make plots
+const makeplots = 1;
