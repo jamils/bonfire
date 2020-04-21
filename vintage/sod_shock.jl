@@ -15,12 +15,12 @@ include("eigeuler.jl")
 include("eigmhd.jl")
 
 # choose set of equations to run
-global EULER = true;
-global MHD = false;
+global EULER = false;
+global MHD = true;
 
 # choose numerical scheme
-global RUN_MACCORMACK = false;
-global RUN_MUSCL = true;
+global RUN_MACCORMACK = true;
+global RUN_MUSCL = false;
 
 # choose whether to output data files
 global OUTPUT_DATA = true;

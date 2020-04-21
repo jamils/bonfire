@@ -1,7 +1,7 @@
 # MHD eigenvalues #
 # Kolter Bradshaw #
 
-function eigmhd()
+function eigmhd(QL, QR, gamma)
     rhoL = QL[1];
     BL = sqrt(QL[5]^2 + QL[6]^2 + QL[7]^2);
     PL = (gamma - 1)*(QL[8] - 0.5*(QL[2]^2 + QL[3]^2 + QL[4]^2)/QL[1]^2 - BL^2/2);
