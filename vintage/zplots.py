@@ -1,8 +1,8 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-Q0 = np.genfromtxt('mhd_wave_initial_conditions_mhd.csv', delimiter = ',')
-Qf = np.genfromtxt('sod_shock_final_mhd_muscl.csv', delimiter = ',')
+Q0 = np.genfromtxt('z-pinch_initial_conditions_mhd.csv', delimiter = ',')
+Qf = np.genfromtxt('sod_shock_final_mhd_maccormack.csv', delimiter = ',')
 
 N = len(Q0[0,:])
 
@@ -26,22 +26,21 @@ Ef = Qf[7]
 
 x = np.linspace(0, 1, num=N)
 
-#plt.plot(x, rho0, label="$rho_0$")
+plt.plot(x, rho0, label="$rho_0$")
 #plt.plot(x, rhof, label="$rho_f$")
-#plt.plot(x, u0, label="$u_0$")
-plt.plot(x, uf, label="$u_f$")
-plt.plot(x, Bzf/np.sqrt(rhof), label="$u_f$")
-#plt.plot(x, v0, label="$v_0$")
+plt.plot(x, u0, label="$u_0$")
+#plt.plot(x, uf, label="$u_f$")
+plt.plot(x, v0, label="$v_0$")
 #plt.plot(x, vf, label="$v_f$")
-#plt.plot(x, w0, label="$w_0$")
+plt.plot(x, w0, label="$w_0$")
 #plt.plot(x, wf, label="$w_f$")
-#plt.plot(x, Bx0, label="$Bx_0$")
+plt.plot(x, Bx0, label="$Bx_0$")
 #plt.plot(x, Bxf, label="$Bx_f$")
-#plt.plot(x, By0, label="$By_0$")
+plt.plot(x, By0, label="$By_0$")
 #plt.plot(x, Byf, label="$By_f$")
-#plt.plot(x, Bz0, label="$Bz_0$")
+plt.plot(x, Bz0, label="$Bz_0$")
 #plt.plot(x, Bzf, label="$Bz_f$")
-#plt.plot(x, E0, label="$E_0$")
+plt.plot(x, E0, label="$E_0$")
 #plt.plot(x, Ef, label="$E_f$")
 plt.legend()
 plt.show()

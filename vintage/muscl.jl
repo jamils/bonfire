@@ -1,7 +1,7 @@
 # MUSCL numerical scheme #
 # Kolter Bradshaw #
 function muscl(Q, n, limiter, gamma, neq, eps, k, dt, dx)
-    Q = hcat(Q[:, 1], Q[:, 1], Q[:, 1], Q[:, :], Q[:, n], Q[:, n], Q[:, n]);
+    Q = hcat(Q[:, n - 2], Q[:, n - 1], Q[:, n], Q[:, :], Q[:, 1], Q[:, 2], Q[:, 3]);
     rMinus = zeros(neq, n + 6);
     rPlus = zeros(neq, n + 6);
     thetaMinus = zeros(neq, n + 6);
