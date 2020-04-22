@@ -38,10 +38,10 @@ if RUN_MUSCL == true
 end
 
 # initial properties
-A = 0.01;
+A = 0.000001;
 Lx = 1;
 rho_0 = 1.0;
-p_0 = 1.0;
+p_0 = 1.0/1.4;
 u_0 = 0;
 v_0 = 0;
 w_0 = 0;

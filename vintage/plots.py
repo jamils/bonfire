@@ -26,11 +26,11 @@ Ef = Qf[7]
 
 x = np.linspace(0, 1, num=N)
 
-#plt.plot(x, rho0, label="$rho_0$")
-#plt.plot(x, rhof, label="$rho_f$")
+plt.plot(x, rho0, label="$rho_0$")
+plt.plot(x, rhof, label="$rho_f$")
 #plt.plot(x, u0, label="$u_0$")
-plt.plot(x, uf, label="$u_f$")
-plt.plot(x, Bzf/np.sqrt(rhof), label="$u_f$")
+#plt.plot(x, uf, label="$u_f$")
+#plt.plot(x, Bzf/np.sqrt(rhof), label="$u_f$")
 #plt.plot(x, v0, label="$v_0$")
 #plt.plot(x, vf, label="$v_f$")
 #plt.plot(x, w0, label="$w_0$")
