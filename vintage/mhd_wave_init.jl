@@ -3,9 +3,11 @@
 
 function mhd_wave_init(A, Lx, rho0, p0, u0, v0, w0, dx, dt, tstop, n, gamma, CFL, Bx0, By0, Bz0)
 
+    neq = 8;
+
     # MHD eigenvectors
     E0 = p0/(gamma - 1) + 0.5*rho0*u0^2 + (Bx0^2 + By0^2 + Bz0^2)/2;
-    a = sqrt(0.5*u0^2 + (gamma - 1)*rho0*p0/rho0^2);
+    a = sqrt(p0*rho0 + (gamma - 1)*rho0*p0/rho0^2);
     b = sqrt(Bx0^2 + By0^2 + Bz0^2)/sqrt(rho0);
     cA = Bx0/sqrt(rho0);
     cf = sqrt(0.5*((a^2 + b^2) + sqrt((a^2 + b^2)^2 - 4*a^2*Bx0^2/rho0)));
@@ -55,10 +57,10 @@ function mhd_wave_init(A, Lx, rho0, p0, u0, v0, w0, dx, dt, tstop, n, gamma, CFL
         betay = By0/sqrt(By0^2 + Bz0^2);
         betaz = Bz0/sqrt(By0^2 + Bz0^2);
     end
-    c1 = cf;
-    cbar1 = cs;
-    c2 = cs;
-    cbar2 = cf;
+    c1 = -cf;
+    cbar1 = -cs;
+    c2 = -cs;
+    cbar2 = -cf;
     if c1^2 - a^2 >= 0
         sgndiff1 = 1;
     else
@@ -70,7 +72,9 @@ function mhd_wave_init(A, Lx, rho0, p0, u0, v0, w0, dx, dt, tstop, n, gamma, CFL
         sgndiff2 = -1;
     end
     R1 = [0; 0; -betaz*sgnBx; betay*sgnBx; 0; betaz/sqrt(rho0); -betay/sqrt(rho0); -sgnBx*(betaz*v0 - betay*w0)];
+    R1 = zeros(neq, 1);
     R2 = [alpha1; alpha1*(u0 + c1); alpha1*v0 - alphabar1*cbar1*sgndiff1*sgnBx*betay; alpha1*w0 - alphabar1*cbar1*sgndiff1*sgnBx*betaz; 0; alphabar1*a*sgndiff1*betay/sqrt(rho0); alphabar1*a*sgndiff1*betaz/sqrt(rho0); alpha1*(hstar - a^2 - b^2 + c1^2 + u0*c1) - sgndiff1*alphabar1*cbar1*sgnBx*(v0*betay + w0*betaz)];
+    R2 = zeros(neq, 1);
     R3 = [alpha2; alpha2*(u0 + c2); alpha2*v0 - alphabar2*cbar2*sgndiff2*sgnBx*betay; alpha2*w0 - alphabar2*cbar2*sgndiff2*sgnBx*betaz; 0; alphabar2*a*sgndiff2*betay/sqrt(rho0); alphabar2*a*sgndiff2*betaz/sqrt(rho0); alpha2*(hstar - a^2 - b^2 + c2^2 + u0*c2) - sgndiff2*alphabar2*cbar2*sgnBx*(v0*betay + w0*betaz)];;
 
     rho = zeros(1, n);
@@ -106,8 +110,6 @@ function mhd_wave_init(A, Lx, rho0, p0, u0, v0, w0, dx, dt, tstop, n, gamma, CFL
     rhou = rho.*u;
     rhov = rho.*v;
     rhow = rho.*w;
-
-    neq = 8;
 
     Bx = zeros(1, n);
     for i = 1:n

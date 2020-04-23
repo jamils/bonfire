@@ -48,8 +48,8 @@ w_0 = 0;
 dx = 0.001;
 n = Int(Lx/dx);
 gamma = 1.4;
-dt = 1;
-tstop = 0.15;
+dt = 0.0001;
+tstop = 1.0;
 CFL = 0.75;
 
 # initial magnetic field

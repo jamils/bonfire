@@ -24,17 +24,20 @@ Byf = Qf[5]
 Bzf = Qf[6]
 Ef = Qf[7]
 
+error = np.sqrt((1/N)*np.sum((Qf - Q0)**2))
+print(error)
+
 x = np.linspace(0, 1, num=N)
 
-plt.plot(x, rho0, label="$rho_0$")
-plt.plot(x, rhof, label="$rho_f$")
+#plt.plot(x, rho0, label="$rho_0$")
+#plt.plot(x, rhof, label="$rho_f$")
 #plt.plot(x, u0, label="$u_0$")
 #plt.plot(x, uf, label="$u_f$")
 #plt.plot(x, Bzf/np.sqrt(rhof), label="$u_f$")
 #plt.plot(x, v0, label="$v_0$")
 #plt.plot(x, vf, label="$v_f$")
-#plt.plot(x, w0, label="$w_0$")
-#plt.plot(x, wf, label="$w_f$")
+plt.plot(x, w0, label="$w_0$")
+plt.plot(x, wf, label="$w_f$")
 #plt.plot(x, Bx0, label="$Bx_0$")
 #plt.plot(x, Bxf, label="$Bx_f$")
 #plt.plot(x, By0, label="$By_0$")
