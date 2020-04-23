@@ -1,4 +1,4 @@
-# Sod shock tube input file #
+# MHD Waves input file #
 # Kolter Bradshaw #
 
 # grab dependencies
@@ -45,7 +45,7 @@ p_0 = 1.0;
 u_0 = 0;
 v_0 = 0;
 w_0 = 0;
-dx = 0.001;
+dx = 0.0001;
 n = Int(Lx/dx);
 gamma = 1.4;
 dt = 1;

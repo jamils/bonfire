@@ -12,6 +12,11 @@ function solver(dx, dt, tstop, n, gamma, CFL, neq, Q, F; muscl_params=nothing)
         if maximum(ua)*dt/dx > CFL
             dt = CFL*dx/maximum(ua);
         end
+        #---
+        if steps%100 == 0
+            println("dt = ", dt)
+        end
+        #---
         if RUN_MACCORMACK == true
             Q = maccormack(Q, F, n, neq, gamma, dt, dx);
             for i = 1:n
