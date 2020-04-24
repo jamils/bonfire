@@ -13,8 +13,10 @@ function solver(dx, dt, tstop, n, gamma, CFL, neq, Q, F; muscl_params=nothing)
             dt = CFL*dx/maximum(ua);
         end
         #---
-        if steps%100 == 0
+        if steps%1000 == 0
             println("dt = ", dt)
+            print_time = (tstop - t);
+            println("Time = ", print_time)
         end
         #---
         if RUN_MACCORMACK == true
@@ -46,7 +48,7 @@ function solver(dx, dt, tstop, n, gamma, CFL, neq, Q, F; muscl_params=nothing)
             if RUN_MACCORMACK == true
                 writedlm("sod_shock_final_mhd_maccormack.csv", Q, ',')
             elseif RUN_MUSCL == true
-                writedlm("sod_shock_final_mhd_muscl.csv", Q, ',')
+                writedlm("sod_shock_final_mhd_muscl_1e4.csv", Q, ',')
             end
         end
     end

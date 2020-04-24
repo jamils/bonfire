@@ -24,7 +24,7 @@ Byf = Qf[5]
 Bzf = Qf[6]
 Ef = Qf[7]
 
-error = np.sqrt((1/N)*np.sum((Qf - Q0)**2))
+error = np.sqrt((1/N)*np.sum(((Qf[2]/Qf[0]) - (Q0[2]/Q0[0]))**2))
 print(error)
 
 x = np.linspace(0, 1, num=N)
