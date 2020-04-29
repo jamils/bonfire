@@ -1,3 +1,5 @@
+using Distributed
+using MATLAB
 @everywhere using LinearAlgebra
 @everywhere using DelimitedFiles
 @everywhere using SharedArrays
@@ -53,7 +55,6 @@ end
 @everywhere rho_0 = 1.0;
 @everywhere p_0 = 1.0/1.4;
 @everywhere u_0 = 0;
-@everywhere v_0 = 0;
 @everywhere w_0 = 0;
 # ---
 @everywhere diff = 1;
@@ -72,15 +73,19 @@ if MHD == true
     @everywhere Bz_0 = 0.5;
 end
 
-len = Int64(10);
-neq = Int64(8);
+@everywhere N = 100;
+@everywhere mu = 0;
+@everywhere sigma = A;
 
-Q0all = SharedArray{Float64}(len, neq, n);
-Qall  = SharedArray{Float64}(len, neq, n);
+mat"""
+    mv_0 = lhsnorm($mu, sigma^2, $N);
+"""
+v_0 = @mget mv_0;
 
-@sync @distributed for i in 1:10
+@sync @distributed for i in 1:N
+
     # initialize the problem
-    Q0, F0, neq = mhd_wave_init(A, Lx, rho_0, p_0, u_0, v_0, w_0, dx, dt, tstop, n, gamma, CFL, Bx_0, By_0, Bz_0, i);
+    Q0, F0, neq = mhd_wave_init(A, Lx, rho_0, p_0, u_0, v_0[i], w_0, dx, dt, tstop, n, gamma, CFL, Bx_0, By_0, Bz_0, i);
 
     # run fluid simulation
     if RUN_MACCORMACK == true
@@ -89,6 +94,6 @@ Qall  = SharedArray{Float64}(len, neq, n);
         Q, steps = solver(dx, dt, tstop, n, gamma, CFL, neq, Q0, F0, i, muscl_params=muscl_par);
     end
 
-    Q0all[i,:,:] = Q0;
-    Qall[i,:,:] = Q;
+    #Q0all[i,:,:] = Q0;
+    #Qall[i,:,:] = Q;
 end
