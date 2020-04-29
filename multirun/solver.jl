@@ -14,9 +14,8 @@ function solver(dx, dt, tstop, n, gamma, CFL, neq, Q, F, loopnum; muscl_params=n
         end
         #---
         if steps%1000 == 0
-            println("dt = ", dt)
             print_time = (tstop - t);
-            println("Time = ", print_time)
+            println("T- ", print_time)
         end
         #---
         if RUN_MACCORMACK == true
