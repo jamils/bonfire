@@ -34,4 +34,4 @@ global const k = 1/3;
 global const eps = 0.15;
 
 # Make plots
-const makeplots = 1;
+const makeplots = 0;
