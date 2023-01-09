@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.19.18
+# v0.19.19
 
 using Markdown
 using InteractiveUtils
@@ -31,71 +31,487 @@ This is an interactive playground designed to teach elementary magnetohydrodynam
 As this is a work-in-progress, for now we will skip the necessary introduction into the theory. Let's jump into the actual code
 
 ### Code Outline
-Generally, I like to draw a 'map' of any source code that I'm working this. This allows me to visualize the flow of the code, and how the individual components and functions interact with each other. Let's start at the top with the `main.jl` file. This first imports all of the packages used for the entire project.
+Generally, I like to draw a 'map' of any source code with which I'm working. This allows me to visualize the flow of the code, and how the individual components and functions interact with each other. I'll try to outline overall sections and the flow of the code, but please check the button below if you would like to view the direct source code inside of this notebook!
 """
+
+# ╔═╡ 195ce57e-a21f-4872-af6e-819d17105a36
+md"Show code $(@bind show_code CheckBox(default=true))"
 
 # ╔═╡ 14369438-0b1e-4e3e-9eef-809833a37b9a
 md"""
-Next, we load the input paramaters from `input.jl`. Ideally, this would be the only section of the code that a non-developer would have to interact with. For this purpose, I will try to utilize some of the more *fun* features of Pluto.
+Next, we load the input paramaters. Ideally, this would be the only section of the code that a non-developer would have to interact with. Feel free to change the values of the below variables, doing so may adjust the display of the code and information herein. For this purpose, I will try to utilize some of the more *fun* features of Pluto.
 """
 
-# ╔═╡ 8abd3bdf-6817-4aca-b7b3-d3a758cfec8c
-md"MHD $(@bind eqnset CheckBox())"
-
-# ╔═╡ 2fee5e0b-cd4f-4e4a-9e69-d90740c93cb6
+# ╔═╡ 83595be7-bf28-4a08-891b-99ee1dacb7fb
 begin
-if eqnset == false
-	md"""
-	#### Euler Equations
-	Fluid equations derived from the Navier-Stokes equations.
+	# 1 == euler
+	# 2 == mhd
+	const eqntype = 2;
 	
-	``
-	{\displaystyle \left\{{\begin{aligned}{D\rho  \over Dt}&=-\rho \nabla \cdot \mathbf {u} \\[1.2ex]{\frac {D\mathbf {u} }{Dt}}&=-{\frac {\nabla p}{\rho }}+\mathbf {g} \\[1.2ex]{De \over Dt}&=-{\frac {p}{\rho }}\nabla \cdot \mathbf {u} \end{aligned}}\right.}
-	``
+	# 1 == maccormack
+	# 2 == muscl
+	const schemetype = 1;
 
-	```julia
+	# MUSCL Limiters: 1 - MINMOD
+	#           2 - SUPERBEE
+	#           3 - VAN-LEER
+	#           4 - MONOTONIZED
+	global const limiter = 1;
+	global const k = 1/3;
+	global const ϵ = 0.15;
+end;
+
+# ╔═╡ 730195ac-480a-4d64-a3f9-a1612332e3e4
+md"""
+#### Equation Type
+For this, there are two equation types: Euler and Magnetohydrodynamic (MHD). The euler equations are a subset of the Navier-Stokes equations and describe some basic ideal fluid flow. The MHD equations are very similar, but also include Maxwell's Equations of electromagnetism and the Lorentz Force Law. MHD essentially describes a fluid of charged particles with are evolved in changing electric and magnetic fields.
+This value is denoted by the variable `eqntype` which can have a value of `1` for the Euler equations, or `2` for the MHD equations.
+
+#### Scheme Type
+The next variable `schemetype` defines with discretization scheme should be used for the equations. The first option, the *MacCormack Method*, which proceeds with a **predictor** step, and a **corrector** step. 
+
+The second option is the *MUSCL* scheme. MUSCL stands for Monotonic Upwind Scheme for Conservation Laws - it is a type of reconstruction-evolution scheme for the finite volume method.
+
+```math
+Q_j^{n+1} = Q_j^n - \frac{\Delta t}{\Delta x}(F_{j+\frac{1}{2}}^{n*} - F_{j-\frac{1}{2}}^{n*})
+```
+
+And the flux is computed using the below functions:
+
+```math
+Q_{j+\frac{1}{2}}^{L} = Q_j + \frac{\epsilon}{4}[(1-k)\theta_{j-\frac{1}{2}}^+(Q_j - Q_{j-1}) + (1+k)\theta_{j+\frac{1}{2}}^-(Q_{j+1} - Q_j)]
+```
+```math
+Q_{j+\frac{1}{2}}^{R} = Q_{j+1} - \frac{\epsilon}{4}[(1+k)\theta_{j+1}^-(Q_{j+1} - Q_j) + (1-k)\theta_{j+\frac{1}{2}}^+(Q_{j+2} - Q_{j+1})] 
+```
+
+The flux computations rely on two factors `k` and `ϵ`. These are also variables defined above, with the values meaning:
+
+```math  
+k = 
+	 \begin{cases}
+	   -1 &\quad\text{fully upwind}\\
+	   0 &\quad\text{upwind-bias} \\
+	   \frac{1}{3} &\quad\text{3rd order upwind-bias}\\
+	   \frac{1}{2} &\quad\text{Leaonad's quick} \\
+	   1 &\quad\text{central difference}\\
+	 \end{cases},\,\,\,\,\,\,\,\,\,\,\,
+\epsilon =     
+	\begin{cases}
+	   0 &\quad\text{1st order} \\
+	   1 &\quad\text{2nd order or higher}\\
+	 \end{cases}
+```
+
+With the input parameters loaded, the above values will now affect the code that follows.
+"""
+
+# ╔═╡ 9e542ab1-7ed9-490d-b4b8-7dea4db73401
+begin
+	# initial properties
+	global const ρ₀ = [1.0, 0.125];
+	global const p₀ = [1.0, 0.1];
+	global const u₀ = [0, 0];
+	global const dx = 0.001;
+	global const n = Int(1/dx);
+	global const γ = 1.4;
+	global const dt = 1;
+	global const tstop = 0.15;
+	global const CFL = 0.75;
+	
+	# MHD initial magnetic field
+	global const Bx₀ = [0.75, 0.75];
+	global const By₀ = [1.0, -1.0];
+	global const Bz₀ = [0, 0];
+	
+	# Make plots
+	const makeplots = false;
+	
+	# Output data from simulation into .csv files
+	global const OUTPUT_DATA = true;
+end;
+
+# ╔═╡ f4935bb2-dcbc-42a2-a564-d0d89a62b619
+md"""
+#### Initial Properties
+This section contains the initials conditions of the simulation. Currently, the input parameters are designed for a two-dimensional system.
+* ρ₀ 	- Density vector
+* p₀ 	- Pressure vector
+* u₀    - Velocity Vector
+* dx    - Grid cell size/resolution
+* n     - Number of cells in the grid
+* γ     - Heat capacity ratio `` \frac{C_P}{C_V} ``, a constant of the material
+* dt    - Timestep
+* tstop - Total run-time length of the simulation
+* CFL   - Courant-Friedrichs-Lewy coundition: convergence condition for explicity time integration of hyperbolic PDEs
+The Initial Magnetic Field section contains all three directional components of the magnetic field vectors Bx₀, By₀, and Bz₀.
+"""
+
+# ╔═╡ ce5870f9-2d91-4f49-b98b-183517bbbe12
+md"""
+---
+Once the initial conditions are set and you run the program, the first thing that bonfire does is load the discretized equation sets. This includes things like the eigenvalue and eigenvector calcuations, sound speed, and currently a default initialization method for the Sod Shock sample run. Everything is loaded into RAM as a function, and will not be analyzed until called. Once the equation sets are loaded, bonfire then needs to load the numerical scheme. The schemes are also loaded in as functions.
+
+Once all of the necessary modules and functions are loaded, bonfire will prime and initialize itself for the Sod Shock example. This initialization runs through all of the variables, functions, and modules onces and produces the first timestep. With the Julia programming language, the initialization compiles all of the functions to low-level LLVM and assembly code. The benefit to this is that, at run time, the code can run at assembly level. 
+
+Once the initialization is complete, bonfire will then run the solver. The solver will loop through the numerical scheme at each time step until the maximum simulation time has been reached. Depending on the values chosen, this can be anywhere between 2 to 10,000 steps. Each step forward in time depends on information calculated in the previous timestep.
+"""
+
+# ╔═╡ 220e7253-b2cc-4603-8a3b-f349d0727853
+if eqntype == 1
 	function eqnset(Q, γ)
-		rho = Q[1];
-		rhou = Q[2];
+		ρ = Q[1];
+		ρu = Q[2];
 		E = Q[3];
-		P = (γ - 1)*(E - 0.5*(rhou^2)/rho);
-		F = [rhou; (rhou^2)/rho + P; (rhou/rho)*(E + P)];
+		P = (γ - 1)*(E - 0.5*(ρu^2)/ρ);
+		F = [ρu; (ρu^2)/ρ + P; (ρu/ρ)*(E + P)];
 		return F
 	end
-	```
+	function sound(Q, γ)
+		P = @. (γ - 1)*(Q[3, :] - 0.5*(Q[2, :]^2)/Q[1, :]);
+		a = @. √(γ*P/Q[1, :]);
+		return a
+	end
+	function eig(QL, QR, γ)
+		ρL = QL[1];
+		ρuL = QL[2];
+		EL = QL[3];
+		PL = (γ - 1)*(EL - 0.5*(ρuL^2)/ρL);
+		ρR = QR[1];
+		ρuR = QR[2];
+		ER = QR[3];
+		PR = (γ - 1)*(ER - 0.5*(ρuR^2)/ρR);
+		uL = ρuL/ρL;
+		uR = ρuR/ρR;
+		aL = √(γ*PL/ρL);
+		aR = √(γ*PR/ρR);
+		λL = min(uL, uR) - max(aL, aR);
+		λR = min(uL, uR) + max(aL, aR);
+		return λL, λR
+	end
+	function sod_shock_init(ρ₀, p₀, u₀, dx, dt, tstop, n, γ, CFL, Bx₀, By₀, Bz₀)
+		half = Int(n/2);
+		ρ = zeros(1, n);
+		ρ[1:half] = ρ0[1]*ones(1, half);
+		ρ[(half + 1):n] = ρ0[2]*ones(1, half);
 	
-	"""
-elseif eqnset == true
+		u = zeros(1, n);
+		u[1:half] = u0[1]*ones(1, half);
+		u[(half + 1):n] = u0[2]*ones(1, half);
+	
+		p = zeros(1, n);
+		p[1:half] = p0[1]*ones(1, half);
+		p[(half + 1):n] = p0[2]*ones(1, half);
+	
+		ρu = @. ρ*u;
+	
+		neq = 3;
+	
+		E = @. p/(γ - 1) + 0.5*(ρu^2)/ρ;
+		Q = zeros(neq, n);
+	
+		Q[1, :] = ρ;
+		Q[2, :] = ρu;
+		Q[3, :] = E;
+	
+		F = zeros(neq, n);
+	
+		for i = 1:n
+			F[:, i] = eqnset(Q[:, i], γ);
+		end
+	
+		# if OUTPUT_DATA == 1
+		writedlm("sod_shock_initial_conditions_euler.csv", Q, ',')
+		# end
+	
+		return Q, F, neq
+	end
+	if show_code==true
 	md"""
-	#### Magnetohydrodynamic Equations
-	Magneto-fluid equations that invoke both the intuitive nature of Maxwell's Equations and the easy solvibility of the Navier-Stokes equations.
-
-	``
-	{\displaystyle \left\{{\begin{aligned}
-	{\frac {\partial \rho }{\partial t}}+\nabla \cdot \left(\rho \mathbf {v} \right)=0
-	\\[1.2ex] \rho \left({\frac {\partial }{\partial t}}+\mathbf {v} \cdot \nabla \right)\mathbf {v} =\mathbf {J} \times \mathbf {B} -\nabla p
-	\\[1.2ex] \mathbf {J} \times \mathbf {B} ={\frac {\left(\mathbf {B} \cdot \nabla \right)\mathbf {B} }{\mu _{0}}}-\nabla \left({\frac {B^{2}}{2\mu _{0}}}\right)
-	\\[1.2ex] \nabla \cdot \mathbf {B} =0
-	\end{aligned}}\right.}
-	``
-
-	```julia
+	##### Euler Equation Discretization
+	"""
+	end
+elseif eqntype == 2
 	function eqnset(Q,γ)
-	    rho = Q[1];
-	    rhou = Q[2];
-	    rhov = Q[3];
-	    rhow = Q[4];
-	    Bx = Q[5];
-	    By = Q[6];
-	    Bz = Q[7];
-	    E = Q[8];
-	    B = sqrt(Bx^2 + By^2 + Bz^2);
-	    P = (γ - 1)*(E - 0.5*(rhou^2 + rhov^2 + rhow^2)/rho - B^2/2);
-	    F = [rhou; rhou^2/rho - Bx^2 + P + B^2/2; rhou*rhov/rho - Bx*By; rhou*rhow/rho - Bx*Bz; 0; rhou*By/rho - Bx*rhov/rho; rhou*Bz/rho - Bx*rhow/rho; (E + P + B^2/2)*rhou/rho - (Bx*rhou/rho + By*rhov/rho + Bz*rhow/rho)*Bx];
-	    return F
+		ρ = Q[1];
+		ρu = Q[2];
+		ρv = Q[3];
+		ρw = Q[4];
+		Bx = Q[5];
+		By = Q[6];
+		Bz = Q[7];
+		E = Q[8];
+		B = √(Bx^2 + By^2 + Bz^2);
+		P = (γ - 1)*(E - 0.5*(ρu^2 + ρv^2 + ρw^2)/ρ - B^2/2);
+		F = [ρu; ρu^2/ρ - Bx^2 + P + B^2/2; ρu*ρv/ρ - Bx*By; ρu*ρw/ρ - Bx*Bz; 0; ρu*By/ρ - Bx*ρv/ρ; ρu*Bz/ρ - Bx*ρw/ρ; (E + P + B^2/2)*ρu/ρ - (Bx*ρu/ρ + By*ρv/ρ + Bz*ρw/ρ)*Bx];
+		return F
+	end
+	function eig(QL, QR, γ)
+		ρL = QL[1];
+		BL = √(QL[5]^2 + QL[6]^2 + QL[7]^2);
+		PL = (γ - 1)*(QL[8] - 0.5*(QL[2]^2 + QL[3]^2 + QL[4]^2)/QL[1]^2 - BL^2/2);
+		ρR = QR[1];
+		BR = √(QR[5]^2 + QR[6]^2 + QR[7]^2);
+		PR = (γ - 1)*(QR[8] - 0.5*(QR[2]^2 + QR[3]^2 + QR[4]^2)/QR[1]^2 - BR^2/2);
+	
+		uL = QL[2]/ρL;
+		uR = QR[2]/ρR;
+		cL = √(γ*PL/ρL);
+		cR = √(γ*PR/ρR);
+		vL = QL[5]/√(ρL);
+		vR = QR[5]/√(ρR);
+		aL = √(0.5*(BL^2/ρL + cL^2 + √((BL^2/ρL + cL^2)^2 - 4*vL^2*cL^2)));
+		aR = √(0.5*(BR^2/ρR + cR^2 + √((BR^2/ρR + cR^2)^2 - 4*vR^2*cR^2)));
+		λL = min(uL, uR) - max(aL, aR);
+		λR = min(uL, uR) + max(aL, aR);
+		return λL, λR
+	end
+	function sound(Q, γ)
+		ρ = Q[1, :];
+		B = @. √(Q[5, :]^2 + Q[6, :]^2 + Q[7, :]^2);
+		P = @. (γ - 1)*(Q[8, :] - 0.5*(Q[2, :]^2 + Q[3, :]^2 + Q[4, :]^2)/Q[1, :]^2 - B^2/2);
+		c = @. √(γ*P/ρ);
+		v = @. Q[5, :]/√(ρ);
+		a = @. √(0.5*((B^2)/ρ + (c^2) + √((B^2)/ρ + (c^2))^2 - 4*(v^2)*(c^2)));
+		return a
+	end
+	function sod_shock_init(ρ₀, p₀, u₀, dx, dt, tstop, n, γ, CFL, Bx₀, By₀, Bz₀)
+		half = Int(n/2);
+		ρ = zeros(1, n);
+		ρ[1:half] = ρ0[1]*ones(1, half);
+		ρ[(half + 1):n] = ρ0[2]*ones(1, half);
+	
+		u = zeros(1, n);
+		u[1:half] = u0[1]*ones(1, half);
+		u[(half + 1):n] = u0[2]*ones(1, half);
+	
+		p = zeros(1, n);
+		p[1:half] = p0[1]*ones(1, half);
+		p[(half + 1):n] = p0[2]*ones(1, half);
+	
+		ρu = @. ρ*u;
+	
+		neq = 8;
+	
+		Bx = zeros(1, n);
+		Bx[1:half] = Bx₀[1]*ones(1, half);
+		Bx[(half + 1):n] = Bx₀[2]*ones(1, half);
+	
+		By = zeros(1, n);
+		By[1:half] = By₀[1]*ones(1, half);
+		By[(half + 1):n] = By₀[2]*ones(1, half);
+	
+		Bz = zeros(1, n);
+		Bz[1:half] = Bz₀[1]*ones(1, half);
+		Bz[(half + 1):n] = Bz₀[2]*ones(1, half);
+	
+		B = @. √(Bx^2 + By^2 + Bz^2);
+		E = @. p/(γ - 1) + 0.5*(ρu^2)/ρ + B^2/2;
+		Q = zeros(neq, n);
+	
+		Q[1, :] = ρ;
+		Q[2, :] = ρu;
+		Q[3, :] = zeros(1, n);
+		Q[4, :] = zeros(1, n);
+		Q[5, :] = Bx;
+		Q[6, :] = By;
+		Q[7, :] = Bz;
+		Q[8, :] = E;
+	
+		F = zeros(neq, n);
+		for i = 1:n
+			F[:, i] = eqnset(Q[:, i], γ);
+		end
+	
+		# if OUTPUT_DATA == 1
+			writedlm("../sod_shock_initial_conditions_mhd.csv", Q, ',')
+		# end
+	
+		return Q, F, neq
+	end
+	if show_code == true
+	md"""
+	##### MHD Equation Discretization
+	"""
+	end
+else error("Invalid value for `eqntype`")
+end
+
+# ╔═╡ 3748e928-930d-4ecd-9f3e-b681b36e9d93
+if show_code == true
+if eqntype == 1
+	md"""
+	```julia
+	function eqnset(Q, γ)
+		ρ = Q[1];
+		ρu = Q[2];
+		E = Q[3];
+		P = (γ - 1)*(E - 0.5*(ρu^2)/ρ);
+		F = [ρu; (ρu^2)/ρ + P; (ρu/ρ)*(E + P)];
+		return F
+	end
+	function sound(Q, γ)
+		P = @. (γ - 1)*(Q[3, :] - 0.5*(Q[2, :]^2)/Q[1, :]);
+		a = @. √(γ*P/Q[1, :]);
+		return a
+	end
+	function eig(QL, QR, γ)
+		ρL = QL[1];
+		ρuL = QL[2];
+		EL = QL[3];
+		PL = (γ - 1)*(EL - 0.5*(ρuL^2)/ρL);
+		ρR = QR[1];
+		ρuR = QR[2];
+		ER = QR[3];
+		PR = (γ - 1)*(ER - 0.5*(ρuR^2)/ρR);
+		uL = ρuL/ρL;
+		uR = ρuR/ρR;
+		aL = √(γ*PL/ρL);
+		aR = √(γ*PR/ρR);
+		λL = min(uL, uR) - max(aL, aR);
+		λR = min(uL, uR) + max(aL, aR);
+		return λL, λR
+	end
+	function sod_shock_init(ρ₀, p₀, u₀, dx, dt, tstop, n, γ, CFL, Bx₀, By₀, Bz₀)
+		half = Int(n/2);
+		ρ = zeros(1, n);
+		ρ[1:half] = ρ0[1]*ones(1, half);
+		ρ[(half + 1):n] = ρ0[2]*ones(1, half);
+	
+		u = zeros(1, n);
+		u[1:half] = u0[1]*ones(1, half);
+		u[(half + 1):n] = u0[2]*ones(1, half);
+	
+		p = zeros(1, n);
+		p[1:half] = p0[1]*ones(1, half);
+		p[(half + 1):n] = p0[2]*ones(1, half);
+	
+		ρu = @. ρ*u;
+	
+		neq = 3;
+	
+		E = @. p/(γ - 1) + 0.5*(ρu^2)/ρ;
+		Q = zeros(neq, n);
+	
+		Q[1, :] = ρ;
+		Q[2, :] = ρu;
+		Q[3, :] = E;
+	
+		F = zeros(neq, n);
+	
+		for i = 1:n
+			F[:, i] = eqnset(Q[:, i], γ);
+		end
+	
+		# if OUTPUT_DATA == 1
+		writedlm("sod_shock_initial_conditions_euler.csv", Q, ',')
+		# end
+	
+		return Q, F, neq
 	end
 	```
+	"""
+elseif eqntype == 2
+	md"""
+	```julia
+	function eqnset(Q,γ)
+		ρ = Q[1];
+		ρu = Q[2];
+		ρv = Q[3];
+		ρw = Q[4];
+		Bx = Q[5];
+		By = Q[6];
+		Bz = Q[7];
+		E = Q[8];
+		B = √(Bx^2 + By^2 + Bz^2);
+		P = (γ - 1)*(E - 0.5*(ρu^2 + ρv^2 + ρw^2)/ρ - B^2/2);
+		F = [ρu; ρu^2/ρ - Bx^2 + P + B^2/2; ρu*ρv/ρ - Bx*By; ρu*ρw/ρ - Bx*Bz; 0; ρu*By/ρ - Bx*ρv/ρ; ρu*Bz/ρ - Bx*ρw/ρ; (E + P + B^2/2)*ρu/ρ - (Bx*ρu/ρ + By*ρv/ρ + Bz*ρw/ρ)*Bx];
+		return F
+	end
+	function eig(QL, QR, γ)
+		ρL = QL[1];
+		BL = √(QL[5]^2 + QL[6]^2 + QL[7]^2);
+		PL = (γ - 1)*(QL[8] - 0.5*(QL[2]^2 + QL[3]^2 + QL[4]^2)/QL[1]^2 - BL^2/2);
+		ρR = QR[1];
+		BR = √(QR[5]^2 + QR[6]^2 + QR[7]^2);
+		PR = (γ - 1)*(QR[8] - 0.5*(QR[2]^2 + QR[3]^2 + QR[4]^2)/QR[1]^2 - BR^2/2);
 	
+		uL = QL[2]/ρL;
+		uR = QR[2]/ρR;
+		cL = √(γ*PL/ρL);
+		cR = √(γ*PR/ρR);
+		vL = QL[5]/√(ρL);
+		vR = QR[5]/√(ρR);
+		aL = √(0.5*(BL^2/ρL + cL^2 + √((BL^2/ρL + cL^2)^2 - 4*vL^2*cL^2)));
+		aR = √(0.5*(BR^2/ρR + cR^2 + √((BR^2/ρR + cR^2)^2 - 4*vR^2*cR^2)));
+		λL = min(uL, uR) - max(aL, aR);
+		λR = min(uL, uR) + max(aL, aR);
+		return λL, λR
+	end
+	function sound(Q, γ)
+		ρ = Q[1, :];
+		B = @. √(Q[5, :]^2 + Q[6, :]^2 + Q[7, :]^2);
+		P = @. (γ - 1)*(Q[8, :] - 0.5*(Q[2, :]^2 + Q[3, :]^2 + Q[4, :]^2)/Q[1, :]^2 - B^2/2);
+		c = @. √(γ*P/ρ);
+		v = @. Q[5, :]/√(ρ);
+		a = @. √(0.5*((B^2)/ρ + (c^2) + √((B^2)/ρ + (c^2))^2 - 4*(v^2)*(c^2)));
+		return a
+	end
+	function sod_shock_init(ρ₀, p₀, u₀, dx, dt, tstop, n, γ, CFL, Bx₀, By₀, Bz₀)
+		half = Int(n/2);
+		ρ = zeros(1, n);
+		ρ[1:half] = ρ0[1]*ones(1, half);
+		ρ[(half + 1):n] = ρ0[2]*ones(1, half);
+	
+		u = zeros(1, n);
+		u[1:half] = u0[1]*ones(1, half);
+		u[(half + 1):n] = u0[2]*ones(1, half);
+	
+		p = zeros(1, n);
+		p[1:half] = p0[1]*ones(1, half);
+		p[(half + 1):n] = p0[2]*ones(1, half);
+	
+		ρu = @. ρ*u;
+	
+		neq = 8;
+	
+		Bx = zeros(1, n);
+		Bx[1:half] = Bx₀[1]*ones(1, half);
+		Bx[(half + 1):n] = Bx₀[2]*ones(1, half);
+	
+		By = zeros(1, n);
+		By[1:half] = By₀[1]*ones(1, half);
+		By[(half + 1):n] = By₀[2]*ones(1, half);
+	
+		Bz = zeros(1, n);
+		Bz[1:half] = Bz₀[1]*ones(1, half);
+		Bz[(half + 1):n] = Bz₀[2]*ones(1, half);
+	
+		B = @. √(Bx^2 + By^2 + Bz^2);
+		E = @. p/(γ - 1) + 0.5*(ρu^2)/ρ + B^2/2;
+		Q = zeros(neq, n);
+	
+		Q[1, :] = ρ;
+		Q[2, :] = ρu;
+		Q[3, :] = zeros(1, n);
+		Q[4, :] = zeros(1, n);
+		Q[5, :] = Bx;
+		Q[6, :] = By;
+		Q[7, :] = Bz;
+		Q[8, :] = E;
+	
+		F = zeros(neq, n);
+		for i = 1:n
+			F[:, i] = eqnset(Q[:, i], γ);
+		end
+	
+		# if OUTPUT_DATA == 1
+			writedlm("../sod_shock_initial_conditions_mhd.csv", Q, ',')
+		# end
+	
+		return Q, F, neq
+	end
+	```
 	"""
 end
 end
@@ -117,9 +533,9 @@ PlutoUI = "~0.7.49"
 PLUTO_MANIFEST_TOML_CONTENTS = """
 # This file is machine-generated - editing it directly is not advised
 
-julia_version = "1.8.3"
+julia_version = "1.8.4"
 manifest_format = "2.0"
-project_hash = "6df857814f2d6b10467724e6c7f87b3164129544"
+project_hash = "15b52356dc35ce293a12d063329e96e4d8a9cdc1"
 
 [[deps.AbstractPlutoDingetjes]]
 deps = ["Pkg"]
@@ -149,7 +565,7 @@ uuid = "6e34b625-4abd-537c-b88f-471c36dfa7a0"
 version = "1.0.8+0"
 
 [[deps.Cairo_jll]]
-deps = ["Artifacts", "Bzip2_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
+deps = ["Artifacts", "Bzip2_jll", "CompilerSupportLibraries_jll", "Fontconfig_jll", "FreeType2_jll", "Glib_jll", "JLLWrappers", "LZO_jll", "Libdl", "Pixman_jll", "Pkg", "Xorg_libXext_jll", "Xorg_libXrender_jll", "Zlib_jll", "libpng_jll"]
 git-tree-sha1 = "4b859a208b2397a7a623a03449e4636bdb17bcf2"
 uuid = "83423d85-b0ee-5818-9007-b63ccbeb887a"
 version = "1.16.1+1"
@@ -205,7 +621,7 @@ version = "4.5.0"
 [[deps.CompilerSupportLibraries_jll]]
 deps = ["Artifacts", "Libdl"]
 uuid = "e66e0078-7015-5450-92f7-15fbd957f2ae"
-version = "0.5.2+0"
+version = "1.0.1+0"
 
 [[deps.Contour]]
 git-tree-sha1 = "d05d9e7b7aedff4e5b51a029dced05cfb6125781"
@@ -1080,9 +1496,15 @@ version = "1.4.1+0"
 
 # ╔═╡ Cell order:
 # ╟─95aa5d17-a75b-48bc-af41-ab371db5e0d3
+# ╟─195ce57e-a21f-4872-af6e-819d17105a36
 # ╠═6f962a5b-9a2b-44b9-babe-4853c3eb7894
 # ╟─14369438-0b1e-4e3e-9eef-809833a37b9a
-# ╟─8abd3bdf-6817-4aca-b7b3-d3a758cfec8c
-# ╟─2fee5e0b-cd4f-4e4a-9e69-d90740c93cb6
+# ╠═83595be7-bf28-4a08-891b-99ee1dacb7fb
+# ╟─730195ac-480a-4d64-a3f9-a1612332e3e4
+# ╠═9e542ab1-7ed9-490d-b4b8-7dea4db73401
+# ╟─f4935bb2-dcbc-42a2-a564-d0d89a62b619
+# ╟─ce5870f9-2d91-4f49-b98b-183517bbbe12
+# ╟─220e7253-b2cc-4603-8a3b-f349d0727853
+# ╟─3748e928-930d-4ecd-9f3e-b681b36e9d93
 # ╟─00000000-0000-0000-0000-000000000001
 # ╟─00000000-0000-0000-0000-000000000002
