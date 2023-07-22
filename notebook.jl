@@ -122,7 +122,7 @@ This section contains the initials conditions of the simulation. Currently, the 
 * γ     - Heat capacity ratio `` \frac{C_P}{C_V} ``, a constant of the material
 * dt    - Timestep
 * tstop - Total run-time length of the simulation
-* CFL   - Courant-Friedrichs-Lewy coundition: convergence condition for explicit time integration of hyperbolic PDEs
+* CFL   - Courant-Friedrichs-Lewy condition: convergence condition for explicit time integration of hyperbolic PDEs
 The Initial Magnetic Field section contains all three directional components of the magnetic field vectors Bx₀, By₀, and Bz₀.
 """
 
@@ -1891,7 +1891,7 @@ version = "1.4.1+0"
 # ╟─3748e928-930d-4ecd-9f3e-b681b36e9d93
 # ╟─b203ba78-47bb-444b-9bd4-7eece407a3ab
 # ╟─31467804-25e6-43b8-8a9f-63738f922988
-# ╟─6d03d72d-ac0a-4f68-aaac-5c902279b160
+# ╠═6d03d72d-ac0a-4f68-aaac-5c902279b160
 # ╟─e7cd3ffb-e168-40b7-b759-c764d8b0fe1b
 # ╠═0cf039a9-0282-4ca2-91cb-927342170963
 # ╠═13ea456c-9a26-4594-b6d5-deb8388e3bd4
